@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe -target:exe -optimize -out:RunEx.exe src\NativeMethods.cs src\AccessToken.cs src\WindowStationDACL.cs src\RunEx.cs src\Program.cs
+
+      - name: Generate Invoke-RunEx.ps1
+        shell: pwsh
+        run: |
+          $template = Get-Content src/Invoke-RunEx.template.ps1 -Raw
+          $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes("RunEx.exe"))
+          $marker = '#@@INJECT_BASE64@@'
+          $before, $after = $template -split [regex]::Escape($marker), 2
+          $out = $before + '    $RunExBase64 = "' + $b64 + '"' + "`n" + $after
+          [IO.File]::WriteAllText("Invoke-RunEx.ps1", $out)
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            RunEx.exe
+            Invoke-RunEx.ps1
