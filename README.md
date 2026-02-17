@@ -1,16 +1,16 @@
 # RunEx v2.0
 
-Run processes as another user. Works from interactive and service contexts, handles window station DACLs, redirects I/O. Use `/netonly` logon to run AD tooling (Snaffler, SharpHound, net view, etc.) from a non-domain-joined machine — no domain join required, just creds.
+Run processes as another user. Works from interactive and service contexts, handles window station DACLs, redirects I/O. Supports `/netonly` logon for running AD tooling from non-domain-joined machines.
 
 ## Features
 
-- `/netonly` logon — run Snaffler, SharpHound, net view against AD from a non-domain-joined box. Just creds, no domain join.
-- Passthrough mode (`-P`) — real-time interactive I/O with the child process. See tool output as it happens, propagate exit codes.
-- Works from SYSTEM — service contexts, PSEXEC sessions, scheduled tasks. Handles window station DACLs automatically.
+- `/netonly` logon — execute tools against Active Directory from a non-domain-joined host using explicit credentials.
+- Passthrough mode (`-P`) — real-time interactive I/O with the child process. Streams output as it happens and propagates exit codes.
+- Works from SYSTEM — service contexts, PsExec sessions, scheduled tasks. Handles window station DACLs automatically.
 - UAC bypass — spawn a full-privilege process without the filtered admin token.
-- Remote I/O — redirect stdin/stdout to a remote host. Run a shell, get output back on your listener.
-- PowerShell wrapper — `Invoke-RunEx user pass { whoami }`. Scriptblocks, bare args, no quoting headaches.
-- No install — single .exe, .NET 4.0 (built into Windows 10+). Drop it, run it.
+- Remote I/O — redirect stdin/stdout to a remote host for out-of-band command execution.
+- PowerShell wrapper — `Invoke-RunEx user pass { whoami }`. Supports scriptblocks and bare arguments.
+- No install — single .exe, targets .NET 4.0 (built into Windows 10/11/Server 2016+).
 
 ## Usage
 
