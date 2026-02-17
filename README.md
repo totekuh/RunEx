@@ -1,17 +1,16 @@
 # RunEx v2.0
 
-Run processes as another user. Works from interactive and service contexts, handles DACLs, redirects I/O.
+Run processes as another user. Works from interactive and service contexts, handles window station DACLs, redirects I/O. Use `/netonly` logon to run AD tooling (Snaffler, SharpHound, net view, etc.) from a non-domain-joined machine — no domain join required, just creds.
 
 ## Features
 
-- Passthrough mode (`-P`) — stdin/stdout/stderr connected directly to the child process. Propagates exit code.
-- Named aliases — `-l netonly`, `-f withlogon`. All logon types and CreateProcess functions accept human-readable names.
-- `--` separator — stops flag parsing. `RunEx.exe user pass -l 8 -- cmd /c echo -v` works.
-- Unquoted commands — `RunEx.exe user pass cmd /c whoami /all` just works.
-- Verbose mode (`-v`) — prints every step: LogonUser, token duplication, DACL setup, process creation.
-- `--help-all` — full reference of every logon type and CreateProcess function with aliases and required privileges.
-- ScriptBlock support (PS1) — `Invoke-RunEx user pass { cmd /c whoami }`. Accepts scriptblocks and bare arguments.
-- Targets CLR 4.0 — loads on any Windows 10/11/Server 2016+ without the .NET 3.5 optional feature.
+- `/netonly` logon — run Snaffler, SharpHound, net view against AD from a non-domain-joined box. Just creds, no domain join.
+- Passthrough mode (`-P`) — real-time interactive I/O with the child process. See tool output as it happens, propagate exit codes.
+- Works from SYSTEM — service contexts, PSEXEC sessions, scheduled tasks. Handles window station DACLs automatically.
+- UAC bypass — spawn a full-privilege process without the filtered admin token.
+- Remote I/O — redirect stdin/stdout to a remote host. Run a shell, get output back on your listener.
+- PowerShell wrapper — `Invoke-RunEx user pass { whoami }`. Scriptblocks, bare args, no quoting headaches.
+- No install — single .exe, .NET 4.0 (built into Windows 10+). Drop it, run it.
 
 ## Usage
 
