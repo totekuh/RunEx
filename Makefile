@@ -5,7 +5,7 @@ OUTDIR   = out
 EXE      = $(OUTDIR)/RunEx.exe
 INVOKE   = $(OUTDIR)/Invoke-RunEx.ps1
 TEMPLATE = src/Invoke-RunEx.template.ps1
-SOURCES  = src/NativeMethods.cs src/AccessToken.cs src/WindowStationDACL.cs src/RunEx.cs src/Program.cs
+SOURCES  = src/NativeMethods.cs src/DInvoke.cs src/AccessToken.cs src/WindowStationDACL.cs src/RunEx.cs src/Program.cs
 
 # Test config
 SNAPSHOT   = clean
@@ -45,6 +45,5 @@ test: deploy
 	echo "$$output" | grep -qi '$(TEST_USER)' \
 		&& echo "PASS: whoami returned $(TEST_USER)" \
 		|| { echo "FAIL: expected '$(TEST_USER)' in output, got: $$output"; exit 1; }
-
 clean:
 	rm -rf $(OUTDIR)
