@@ -4,9 +4,9 @@ function Invoke-RunEx
         .SYNOPSIS
             RunEx is an utility to run specific processes with different permissions
             than the user's current logon provides using explicit credentials.
-            Author: @splinter_code
+            Author: @totekuh
             License: GPL-3.0
-            Source: https://github.com/antonioCoco/RunEx
+            Source: https://github.com/totekuh/RunEx
 
         .PARAMETER Username
             The username of the user

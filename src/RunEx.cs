@@ -155,7 +155,6 @@ public class RunEx
         return result;
     }
 
-    // UAC bypass discussed in this UAC quiz tweet --> https://twitter.com/splinter_code/status/1458054161472307204
     // thanks @winlogon0 for the implementation --> https://github.com/AltF5/MediumToHighIL_Test/blob/main/TestCode2.cs
     private bool CreateProcessWithLogonWUacBypass(int logonType, uint logonFlags, string username, string domainName, string password, string processPath, string commandLine, ref NativeMethods.STARTUPINFO startupInfo, out NativeMethods.ProcessInformation processInfo) {
         bool result = false;
