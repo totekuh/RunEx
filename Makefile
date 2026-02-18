@@ -20,6 +20,10 @@ all: $(EXE) $(INVOKE)
 $(OUTDIR):
 	mkdir -p $(OUTDIR)
 
+# Generate DInvoke.cs from plaintext template (encrypts all API strings)
+src/DInvoke.cs: src/DInvoke.cs.in tools/gen_encrypted_strings.py
+	python3 tools/gen_encrypted_strings.py src/DInvoke.cs.in > src/DInvoke.cs
+
 $(EXE): $(SOURCES) | $(OUTDIR)
 	$(CSC) $(CFLAGS) -out:$(EXE) $(SOURCES)
 
@@ -47,3 +51,4 @@ test: deploy
 		|| { echo "FAIL: expected '$(TEST_USER)' in output, got: $$output"; exit 1; }
 clean:
 	rm -rf $(OUTDIR)
+	rm -f src/DInvoke.cs
