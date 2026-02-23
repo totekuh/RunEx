@@ -5,7 +5,7 @@ using System.Security.Principal;
 public static class RunExMainClass
 {
     private static readonly string help = @"
-RunEx v2.0 - @totekuh
+RunEx v2.1 - @totekuh
 
 Usage:
     RunEx.exe username password cmd [args...] [options]
@@ -30,6 +30,7 @@ Positional arguments:
 Options:
     -h, --help              show this help message and exit
         --help-all          show extended reference (all logon types, etc.)
+    -V, --version           show version and exit
     -d, --domain <domain>   domain of the user, if in a domain (default: """")
     -l, --logon-type <type> logon type for the new process token (default: 2)
                             Accepts a number or name alias. See guide below.
@@ -265,6 +266,10 @@ All CreateProcess functions (-f, --function):
                 }
                 switch (args[ctr])
                 {
+                    case "-V":
+                    case "--version":
+                        return "RunEx v2.1";
+
                     case "-h":
                     case "--help":
                     case "/?":
@@ -381,8 +386,7 @@ All CreateProcess functions (-f, --function):
             output = String.Format("{0}", e.Message);
         }
 
-        if (passthrough)
-            Environment.ExitCode = invoker.ExitCode;
+        Environment.ExitCode = invoker.ExitCode;
 
         return output;
     }

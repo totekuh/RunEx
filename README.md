@@ -1,4 +1,4 @@
-# RunEx v2.0
+# RunEx v2.1
 
 Run processes as another user. Works from interactive and service contexts, handles window station DACLs, redirects I/O. Supports `/netonly` logon for running AD tooling from non-domain-joined machines.
 

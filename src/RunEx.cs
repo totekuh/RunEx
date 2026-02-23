@@ -39,14 +39,14 @@ public class RunEx
 
     private string ReadOutputFromPipe(IntPtr hReadPipe)
     {
-        string output = "";
+        StringBuilder sb = new StringBuilder();
         uint dwBytesRead = 0;
         byte[] buffer = new byte[NativeMethods.BUFFER_SIZE_PIPE];
-        if(!NativeMethods.ReadFile(hReadPipe, buffer, NativeMethods.BUFFER_SIZE_PIPE, out dwBytesRead, IntPtr.Zero)){
-            output += "No output received from the process.\r\n";
+        while (NativeMethods.ReadFile(hReadPipe, buffer, NativeMethods.BUFFER_SIZE_PIPE, out dwBytesRead, IntPtr.Zero) && dwBytesRead > 0)
+        {
+            sb.Append(Encoding.Default.GetString(buffer, 0, (int)dwBytesRead));
         }
-        output += Encoding.Default.GetString(buffer, 0, (int)dwBytesRead);
-        return output;
+        return sb.ToString();
     }
 
     private IntPtr ConnectRemote(string[] remote)
@@ -595,7 +595,10 @@ public class RunEx
             this.hOutputWrite = IntPtr.Zero;
             this.hErrorWrite = IntPtr.Zero;
             NativeMethods.WaitForSingleObject(processInfo.process, processTimeout);
-            output += "\r\n" + ReadOutputFromPipe(this.hOutputRead);
+            uint pipeExitCode = 0;
+            NativeMethods.GetExitCodeProcess(processInfo.process, out pipeExitCode);
+            this.ExitCode = (int)pipeExitCode;
+            output += ReadOutputFromPipe(this.hOutputRead);
         } else {
             int sessionId = System.Diagnostics.Process.GetCurrentProcess().SessionId;
             if (remoteImpersonation)
