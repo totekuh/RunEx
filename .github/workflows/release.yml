@@ -16,7 +16,7 @@ jobs:
 
       - name: Build
         run: |
-          C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe -target:exe -optimize -out:RunEx.exe src\NativeMethods.cs src\AccessToken.cs src\WindowStationDACL.cs src\RunEx.cs src\Program.cs
+          C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe -target:exe -optimize -out:RunEx.exe src\NativeMethods.cs src\DInvoke.cs src\AccessToken.cs src\WindowStationDACL.cs src\RunEx.cs src\Program.cs
 
       - name: Generate Invoke-RunEx.ps1
         shell: pwsh
