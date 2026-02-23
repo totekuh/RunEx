@@ -2,12 +2,10 @@ CSC      = mcs
 SDK      = 4
 CFLAGS   = -sdk:$(SDK) -target:exe -optimize
 OUTDIR   = out
-BUILDDIR = build
 EXE      = $(OUTDIR)/RunEx.exe
 INVOKE   = $(OUTDIR)/Invoke-RunEx.ps1
 TEMPLATE = src/Invoke-RunEx.template.ps1
 SOURCES  = src/NativeMethods.cs src/DInvoke.cs src/AccessToken.cs src/WindowStationDACL.cs src/RunEx.cs src/Program.cs
-BUILD_SOURCES = $(patsubst src/%,$(BUILDDIR)/%,$(SOURCES))
 
 # Test config
 SNAPSHOT   = clean
@@ -22,10 +20,8 @@ all: $(EXE) $(INVOKE)
 $(OUTDIR):
 	mkdir -p $(OUTDIR)
 
-$(EXE): $(SOURCES) tools/obfuscate.py | $(OUTDIR)
-	python3 tools/obfuscate.py src $(BUILDDIR)
-	$(CSC) $(CFLAGS) -out:$(EXE) $(BUILD_SOURCES)
-	rm -rf $(BUILDDIR)
+$(EXE): $(SOURCES) | $(OUTDIR)
+	$(CSC) $(CFLAGS) -out:$(EXE) $(SOURCES)
 
 $(INVOKE): $(EXE) $(TEMPLATE)
 	@{ \
@@ -50,4 +46,4 @@ test: deploy
 		&& echo "PASS: whoami returned $(TEST_USER)" \
 		|| { echo "FAIL: expected '$(TEST_USER)' in output, got: $$output"; exit 1; }
 clean:
-	rm -rf $(OUTDIR) $(BUILDDIR)
+	rm -rf $(OUTDIR)
