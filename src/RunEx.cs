@@ -17,6 +17,9 @@ public class RunEx
     private IntPtr hTokenPreviousImpersonatingThread;
     private uint creationFlags;
     public int ExitCode;
+    private IntPtr hProfileToken;
+    private IntPtr hProfile;
+    private bool profileLoaded;
 
     private string GetProcessFunction(int createProcessFunction){
         if(createProcessFunction == 0)
@@ -104,29 +107,18 @@ public class RunEx
             NativeMethods.ImpersonateLoggedOnUser(this.hTokenPreviousImpersonatingThread);
     }
 
-    private void GetUserEnvironmentBlock(IntPtr hToken, string username, bool forceProfileCreation, bool userProfileExists, out IntPtr lpEnvironment)
+    private void GetUserEnvironmentBlock(IntPtr hToken, string username, out IntPtr lpEnvironment)
     {
-        bool result = false;
         lpEnvironment = new IntPtr(0);
-        NativeMethods.PROFILEINFO profileInfo = new NativeMethods.PROFILEINFO();
         IntPtr hTokenDuplicate;
-        if (forceProfileCreation || userProfileExists) {
-            profileInfo.dwSize = Marshal.SizeOf(profileInfo);
-            profileInfo.lpUserName = username;
-            result = NativeMethods.LoadUserProfile(hToken, ref profileInfo);
-            if (result == false && Marshal.GetLastWin32Error() == 1314)
-                Console.Out.WriteLine("[*] Warning: LoadUserProfile failed due to insufficient permissions");
-        }
         ImpersonateLoggedOnUserWithProperIL(hToken, out hTokenDuplicate);
         try {
             NativeMethods.CreateEnvironmentBlock(out lpEnvironment, hToken, false);
         }
         catch {
-            result = false;
         }
         RevertToSelfCustom();
         NativeMethods.CloseHandle(hTokenDuplicate);
-        if (result && (forceProfileCreation || userProfileExists)) NativeMethods.UnloadUserProfile(hToken, profileInfo.hProfile);
     }
 
     private bool IsUserProfileCreated(string username, string password, string domainName, int logonType) {
@@ -422,7 +414,7 @@ public class RunEx
         }
     }
 
-    private void RunasCreateProcessWithTokenW(string username, string domainName, string password, string commandLine, int logonType, uint logonFlags, int logonProvider, ref NativeMethods.STARTUPINFO startupInfo, ref NativeMethods.ProcessInformation processInfo, ref int logonTypeNotFiltered) {
+    private void RunasCreateProcessWithTokenW(string username, string domainName, string password, string commandLine, int logonType, uint logonFlags, int logonProvider, bool forceUserProfileCreation, bool userProfileExists, ref NativeMethods.STARTUPINFO startupInfo, ref NativeMethods.ProcessInformation processInfo, ref int logonTypeNotFiltered) {
         IntPtr hToken = IntPtr.Zero;
         IntPtr hTokenDuplicate = IntPtr.Zero;
         RunExMainClass.VerboseLog("CreateProcessWithTokenW: calling LogonUser");
@@ -433,6 +425,19 @@ public class RunEx
             throw new RunExException("DuplicateTokenEx", true);
         if (IsLimitedUserLogon(hTokenDuplicate, username, domainName, password, out logonTypeNotFiltered))
             Console.Out.WriteLine(String.Format("[*] Warning: Logon for user '{0}' is limited. Use the --logon-type value '{1}' to obtain a more privileged token", username, logonTypeNotFiltered));
+        if (forceUserProfileCreation || userProfileExists) {
+            RunExMainClass.VerboseLog("CreateProcessWithTokenW: loading user profile");
+            NativeMethods.PROFILEINFO profileInfo = new NativeMethods.PROFILEINFO();
+            profileInfo.dwSize = Marshal.SizeOf(profileInfo);
+            profileInfo.lpUserName = username;
+            if (NativeMethods.LoadUserProfile(hTokenDuplicate, ref profileInfo)) {
+                this.profileLoaded = true;
+                this.hProfileToken = hTokenDuplicate;
+                this.hProfile = profileInfo.hProfile;
+            } else if (Marshal.GetLastWin32Error() == 1314) {
+                Console.Out.WriteLine("[*] Warning: LoadUserProfile failed due to insufficient permissions");
+            }
+        }
         // Enable SeImpersonatePrivilege on our current process needed by the seclogon to make the CreateProcessWithTokenW call
         RunExMainClass.VerboseLog("CreateProcessWithTokenW: enabling SeImpersonatePrivilege");
         AccessToken.EnablePrivilege("SeImpersonatePrivilege", WindowsIdentity.GetCurrent().Token);
@@ -443,7 +448,8 @@ public class RunEx
         if (!NativeMethods.CreateProcessWithTokenW(hTokenDuplicate, logonFlags, null, commandLine, this.creationFlags, IntPtr.Zero, null, ref startupInfo, out processInfo))
             throw new RunExException("CreateProcessWithTokenW", true);
         NativeMethods.CloseHandle(hToken);
-        NativeMethods.CloseHandle(hTokenDuplicate);
+        if (!this.profileLoaded)
+            NativeMethods.CloseHandle(hTokenDuplicate);
     }
 
     private void RunasCreateProcessAsUserW(string username, string domainName, string password, int logonType, int logonProvider, string commandLine, bool forceUserProfileCreation, bool userProfileExists, ref NativeMethods.STARTUPINFO startupInfo, ref NativeMethods.ProcessInformation processInfo, ref int logonTypeNotFiltered) {
@@ -458,8 +464,21 @@ public class RunEx
             throw new RunExException("DuplicateTokenEx", true);
         if (IsLimitedUserLogon(hTokenDuplicate, username, domainName, password, out logonTypeNotFiltered))
             Console.Out.WriteLine(String.Format("[*] Warning: Logon for user '{0}' is limited. Use the --logon-type value '{1}' to obtain a more privileged token", username, logonTypeNotFiltered));
+        if (forceUserProfileCreation || userProfileExists) {
+            RunExMainClass.VerboseLog("CreateProcessAsUserW: loading user profile");
+            NativeMethods.PROFILEINFO profileInfo = new NativeMethods.PROFILEINFO();
+            profileInfo.dwSize = Marshal.SizeOf(profileInfo);
+            profileInfo.lpUserName = username;
+            if (NativeMethods.LoadUserProfile(hTokenDuplicate, ref profileInfo)) {
+                this.profileLoaded = true;
+                this.hProfileToken = hTokenDuplicate;
+                this.hProfile = profileInfo.hProfile;
+            } else if (Marshal.GetLastWin32Error() == 1314) {
+                Console.Out.WriteLine("[*] Warning: LoadUserProfile failed due to insufficient permissions");
+            }
+        }
         RunExMainClass.VerboseLog("CreateProcessAsUserW: loading user environment block");
-        GetUserEnvironmentBlock(hTokenDuplicate, username, forceUserProfileCreation, userProfileExists, out lpEnvironment);
+        GetUserEnvironmentBlock(hTokenDuplicate, username, out lpEnvironment);
         // Enable SeAssignPrimaryTokenPrivilege on our current process needed by the kernel to make the CreateProcessAsUserW call
         RunExMainClass.VerboseLog("CreateProcessAsUserW: enabling SeAssignPrimaryTokenPrivilege");
         AccessToken.EnablePrivilege("SeAssignPrimaryTokenPrivilege", WindowsIdentity.GetCurrent().Token);
@@ -472,7 +491,8 @@ public class RunEx
             throw new RunExException("CreateProcessAsUser", true);
         if (lpEnvironment != IntPtr.Zero) NativeMethods.DestroyEnvironmentBlock(lpEnvironment);
         NativeMethods.CloseHandle(hToken);
-        NativeMethods.CloseHandle(hTokenDuplicate);
+        if (!this.profileLoaded)
+            NativeMethods.CloseHandle(hTokenDuplicate);
     }
 
     public RunEx()
@@ -486,6 +506,9 @@ public class RunEx
         this.hTokenPreviousImpersonatingThread = new IntPtr(0);
         this.creationFlags = NativeMethods.CREATE_NO_WINDOW;
         this.ExitCode = 0;
+        this.hProfileToken = IntPtr.Zero;
+        this.hProfile = IntPtr.Zero;
+        this.profileLoaded = false;
     }
 
     public void CleanupHandles()
@@ -503,6 +526,13 @@ public class RunEx
         this.socket = IntPtr.Zero;
         this.hTokenPreviousImpersonatingThread = IntPtr.Zero;
         this.stationDaclObj = null;
+        if (this.profileLoaded) {
+            NativeMethods.UnloadUserProfile(this.hProfileToken, this.hProfile);
+            NativeMethods.CloseHandle(this.hProfileToken);
+            this.profileLoaded = false;
+            this.hProfileToken = IntPtr.Zero;
+            this.hProfile = IntPtr.Zero;
+        }
     }
 
     public string RunAs(string username, string password, string cmd, string domainName, uint processTimeout, int logonType, int createProcessFunction, string[] remote, bool forceUserProfileCreation, bool bypassUac, bool remoteImpersonation, bool passthrough)
@@ -567,7 +597,7 @@ public class RunEx
                     RunasCreateProcessAsUserW(username, domainName, password, logonType, logonProvider, commandLine, forceUserProfileCreation, userProfileExists, ref startupInfo, ref processInfo, ref logonTypeNotFiltered);
                 } else if (createProcessFunction == 1) {
                     RunExMainClass.VerboseLog("Using CreateProcessWithTokenW path");
-                    RunasCreateProcessWithTokenW(username, domainName, password, commandLine, logonType, logonFlags, logonProvider, ref startupInfo, ref processInfo, ref logonTypeNotFiltered);
+                    RunasCreateProcessWithTokenW(username, domainName, password, commandLine, logonType, logonFlags, logonProvider, forceUserProfileCreation, userProfileExists, ref startupInfo, ref processInfo, ref logonTypeNotFiltered);
                 }
             }
         }

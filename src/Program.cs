@@ -268,7 +268,7 @@ All CreateProcess functions (-f, --function):
                 {
                     case "-V":
                     case "--version":
-                        return "RunEx v2.1";
+                        return "RunEx v2.1.1";
 
                     case "-h":
                     case "--help":
