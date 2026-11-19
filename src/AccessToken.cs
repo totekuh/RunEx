@@ -89,9 +89,9 @@ public static class AccessToken{
         if (!NativeMethods.GetTokenInformation(hToken, NativeMethods.TOKEN_INFORMATION_CLASS.TokenElevation, tokenElevationPtr, tokenInfLength, out tokenInfLength))
             throw new RunExException("GetTokenInformation TokenElevation", true);
         NativeMethods.TOKEN_ELEVATION tokenElevation = (NativeMethods.TOKEN_ELEVATION)Marshal.PtrToStructure(tokenElevationPtr, typeof(NativeMethods.TOKEN_ELEVATION));
+        Marshal.FreeHGlobal(tokenElevationPtr);
         if (tokenElevation.TokenIsElevated > 0) {
             tokenIsFiltered = false;
-            Marshal.FreeHGlobal(tokenElevationPtr);
         }
         else {
             tokenInfLength = 0;
@@ -140,40 +140,42 @@ public static class AccessToken{
 
     public static IntegrityLevel GetTokenIntegrityLevel(IntPtr hToken)
     {
-        IntegrityLevel illevel = IntegrityLevel.Unknown;
         IntPtr pb = Marshal.AllocHGlobal(1000);
-        uint cb = 1000;
-        if (NativeMethods.GetTokenInformation(hToken, NativeMethods.TOKEN_INFORMATION_CLASS.TokenIntegrityLevel, pb, cb, out cb))
-        {
-            IntPtr pSid = Marshal.ReadIntPtr(pb);
-            int dwIntegrityLevel = Marshal.ReadInt32(NativeMethods.GetSidSubAuthority(pSid, (Marshal.ReadByte(NativeMethods.GetSidSubAuthorityCount(pSid)) - 1U)));
-            IntegrityLevel result;
-            if (dwIntegrityLevel == NativeMethods.SECURITY_MANDATORY_LOW_RID)
+        try {
+            uint cb = 1000;
+            if (NativeMethods.GetTokenInformation(hToken, NativeMethods.TOKEN_INFORMATION_CLASS.TokenIntegrityLevel, pb, cb, out cb))
             {
-                result = IntegrityLevel.Low;
+                IntPtr pSid = Marshal.ReadIntPtr(pb);
+                int dwIntegrityLevel = Marshal.ReadInt32(NativeMethods.GetSidSubAuthority(pSid, (Marshal.ReadByte(NativeMethods.GetSidSubAuthorityCount(pSid)) - 1U)));
+                IntegrityLevel result;
+                if (dwIntegrityLevel >= NativeMethods.SECURITY_MANDATORY_SYSTEM_RID)
+                {
+                    result = IntegrityLevel.System;
+                }
+                else if (dwIntegrityLevel >= NativeMethods.SECURITY_MANDATORY_HIGH_RID)
+                {
+                    result = IntegrityLevel.High;
+                }
+                else if (dwIntegrityLevel >= NativeMethods.SECURITY_MANDATORY_MEDIUM_RID)
+                {
+                    result = IntegrityLevel.Medium;
+                }
+                else if (dwIntegrityLevel == NativeMethods.SECURITY_MANDATORY_LOW_RID)
+                {
+                    result = IntegrityLevel.Low;
+                }
+                else
+                {
+                    result = IntegrityLevel.Unknown;
+                }
+                RunExMainClass.VerboseLog("Token integrity level: " + result);
+                return result;
             }
-            else if (dwIntegrityLevel >= NativeMethods.SECURITY_MANDATORY_MEDIUM_RID && dwIntegrityLevel < NativeMethods.SECURITY_MANDATORY_HIGH_RID)
-            {
-                result = IntegrityLevel.Medium;
-            }
-            else if (dwIntegrityLevel >= NativeMethods.SECURITY_MANDATORY_HIGH_RID)
-            {
-                result = IntegrityLevel.High;
-            }
-            else if (dwIntegrityLevel >= NativeMethods.SECURITY_MANDATORY_SYSTEM_RID)
-            {
-                result = IntegrityLevel.System;
-            }
-            else
-            {
-                result = IntegrityLevel.Unknown;
-            }
-            RunExMainClass.VerboseLog("Token integrity level: " + result);
-            return result;
+            RunExMainClass.VerboseLog("Token integrity level: Unknown (query failed)");
+            return IntegrityLevel.Unknown;
+        } finally {
+            Marshal.FreeHGlobal(pb);
         }
-        Marshal.FreeHGlobal(pb);
-        RunExMainClass.VerboseLog("Token integrity level: Unknown (query failed)");
-        return illevel;
     }
 
     public static string EnablePrivilege(string privilege, IntPtr token)

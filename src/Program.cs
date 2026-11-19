@@ -5,7 +5,7 @@ using System.Security.Principal;
 public static class RunExMainClass
 {
     private static readonly string help = @"
-RunEx v2.1 - @totekuh
+RunEx v2.1.2 - @totekuh
 
 Usage:
     RunEx.exe username password cmd [args...] [options]
@@ -268,7 +268,7 @@ All CreateProcess functions (-f, --function):
                 {
                     case "-V":
                     case "--version":
-                        return "RunEx v2.1.1";
+                        return "RunEx v2.1.2";
 
                     case "-h":
                     case "--help":

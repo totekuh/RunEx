@@ -256,12 +256,6 @@ internal static partial class NativeMethods
         public UInt32 Attributes;
     }
 
-    internal struct TOKEN_PRIVILEGES
-    {
-        public int PrivilegeCount;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
-        public LUID_AND_ATTRIBUTES[] Privileges;
-    }
 
     // === Enums ===
 

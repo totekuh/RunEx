@@ -259,6 +259,6 @@ public class WindowStationDACL{
     {
         if(this.hWinsta != IntPtr.Zero) NativeMethods.CloseWindowStation(this.hWinsta);
         if(this.hDesktop != IntPtr.Zero) NativeMethods.CloseDesktop(this.hDesktop);
-        if(this.userSid != IntPtr.Zero) NativeMethods.FreeSid(this.userSid);
+        if(this.userSid != IntPtr.Zero) Marshal.FreeHGlobal(this.userSid);
     }
 }

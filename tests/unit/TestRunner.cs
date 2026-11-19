@@ -82,9 +82,9 @@ public class TestRunner
     static void Test_Version()
     {
         Reset();
-        AssertEqual("RunEx v2.1", SafeRunExMain(new string[]{"--version"}), "U-01a: --version");
+        AssertEqual("RunEx v2.1.2", SafeRunExMain(new string[]{"--version"}), "U-01a: --version");
         Reset();
-        AssertEqual("RunEx v2.1", SafeRunExMain(new string[]{"-V"}), "U-01b: -V alias");
+        AssertEqual("RunEx v2.1.2", SafeRunExMain(new string[]{"-V"}), "U-01b: -V alias");
     }
 
     // ================================================================
@@ -301,6 +301,60 @@ public class TestRunner
     }
 
     // ================================================================
+    // U-16: IntegrityLevel enum ordering (System > High > Medium > Low)
+    // ================================================================
+    static void Test_IntegrityLevelOrdering()
+    {
+        AssertTrue(AccessToken.IntegrityLevel.System > AccessToken.IntegrityLevel.High,
+            "U-16a: System > High");
+        AssertTrue(AccessToken.IntegrityLevel.High > AccessToken.IntegrityLevel.Medium,
+            "U-16b: High > Medium");
+        AssertTrue(AccessToken.IntegrityLevel.Medium > AccessToken.IntegrityLevel.Low,
+            "U-16c: Medium > Low");
+        AssertTrue(AccessToken.IntegrityLevel.Low > AccessToken.IntegrityLevel.Untrusted,
+            "U-16d: Low > Untrusted");
+        AssertTrue(AccessToken.IntegrityLevel.ProtectedProcess > AccessToken.IntegrityLevel.System,
+            "U-16e: ProtectedProcess > System");
+    }
+
+    // ================================================================
+    // U-17: IntegrityLevel enum values match RID constants
+    // ================================================================
+    static void Test_IntegrityLevelRIDValues()
+    {
+        AssertEqual("0", ((int)AccessToken.IntegrityLevel.Untrusted).ToString(),
+            "U-17a: Untrusted == 0x0000");
+        AssertEqual("4096", ((int)AccessToken.IntegrityLevel.Low).ToString(),
+            "U-17b: Low == 0x1000");
+        AssertEqual("8192", ((int)AccessToken.IntegrityLevel.Medium).ToString(),
+            "U-17c: Medium == 0x2000");
+        AssertEqual("12288", ((int)AccessToken.IntegrityLevel.High).ToString(),
+            "U-17d: High == 0x3000");
+        AssertEqual("16384", ((int)AccessToken.IntegrityLevel.System).ToString(),
+            "U-17e: System == 0x4000");
+        AssertEqual("20480", ((int)AccessToken.IntegrityLevel.ProtectedProcess).ToString(),
+            "U-17f: ProtectedProcess == 0x5000");
+        // Verify System RID distinct from High — the bug was >= High catching System
+        AssertTrue((int)AccessToken.IntegrityLevel.System != (int)AccessToken.IntegrityLevel.High,
+            "U-17g: System != High (distinct RIDs)");
+    }
+
+    // ================================================================
+    // U-18: TOKEN_PRIVILEGES struct removed (compile-time check)
+    // ================================================================
+    static void Test_DeadTokenPrivilegesStructRemoved()
+    {
+        Type t = typeof(NativeMethods).GetNestedType("TOKEN_PRIVILEGES",
+            BindingFlags.NonPublic | BindingFlags.Public);
+        AssertTrue(t == null,
+            "U-18: TOKEN_PRIVILEGES struct removed (only TOKEN_PRIVILEGES_2 should exist)");
+        Type t2 = typeof(NativeMethods).GetNestedType("TOKEN_PRIVILEGES_2",
+            BindingFlags.NonPublic | BindingFlags.Public);
+        AssertTrue(t2 != null,
+            "U-18b: TOKEN_PRIVILEGES_2 still exists");
+    }
+
+    // ================================================================
     // Main
     // ================================================================
     public static void Main(string[] args)
@@ -324,6 +378,9 @@ public class TestRunner
         Test_ValidRemote();
         Test_DoubleDashSeparator();
         Test_ConvertAttributeToString();
+        Test_IntegrityLevelOrdering();
+        Test_IntegrityLevelRIDValues();
+        Test_DeadTokenPrivilegesStructRemoved();
 
         Console.WriteLine();
         Console.WriteLine("================");

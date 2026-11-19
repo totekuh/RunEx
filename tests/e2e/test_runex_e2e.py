@@ -219,6 +219,70 @@ class TestNegativeBypassUac:
         )
 
 
+class TestIntegrityLevel:
+
+    def test_verbose_shows_integrity_level(self, ga, disposable_user, runex_deployed):
+        """Verify GetTokenIntegrityLevel runs without crash and reports a known level."""
+        user, password = disposable_user
+        result = ga.exec_argv(RUNEX_PATH, [
+            user, password, "-v", "-P", "--", "whoami.exe",
+        ])
+        assert result.exitcode == 0, f"stdout={result.stdout} stderr={result.stderr}"
+        assert "Token integrity level:" in result.stdout
+
+    def test_admin_token_reports_high_not_unknown(self, ga, disposable_admin, runex_deployed):
+        """Admin token should report High IL, not Unknown (leak would corrupt read)."""
+        user, password = disposable_admin
+        result = ga.exec_argv(RUNEX_PATH, [
+            user, password, "-v", "-P", "--", "whoami.exe",
+        ])
+        assert result.exitcode == 0, f"stdout={result.stdout} stderr={result.stderr}"
+        assert "Token integrity level:" in result.stdout
+        assert "Unknown" not in result.stdout or "query failed" not in result.stdout
+
+
+class TestMemoryLeakRegression:
+
+    def test_repeated_exec_no_crash(self, ga, disposable_user, runex_deployed):
+        """Stress: 15 rapid execs to surface memory leaks in GetTokenIntegrityLevel
+        and IsFilteredUACToken. Pre-fix leaked ~1KB per call."""
+        user, password = disposable_user
+        for i in range(15):
+            result = ga.exec_argv(RUNEX_PATH, [
+                user, password, "-v", "-P", "--", "whoami.exe",
+            ])
+            assert result.exitcode == 0, (
+                f"Iteration {i}: exit={result.exitcode} "
+                f"stdout={result.stdout} stderr={result.stderr}"
+            )
+            assert "AccessViolationException" not in result.stdout
+            assert "OutOfMemoryException" not in result.stdout
+
+    def test_uac_bypass_repeated_no_leak(self, ga, disposable_admin, runex_deployed):
+        """Stress IsFilteredUACToken path (UAC bypass) for memory leak regression."""
+        user, password = disposable_admin
+        for i in range(5):
+            result = ga.exec_argv(RUNEX_PATH, [
+                user, password, "--bypass-uac", "-f", "withlogon",
+                "-v", "-P", "--", "whoami.exe",
+            ])
+            combined = result.stdout + result.stderr
+            assert "OutOfMemoryException" not in combined, f"OOM on iteration {i}"
+            assert "AccessViolationException" not in combined, f"AV on iteration {i}"
+
+
+class TestWindowStationDACL:
+
+    def test_dacl_cleanup_no_crash(self, ga, disposable_user, runex_deployed):
+        """WindowStation DACL path exercises CleanupHandles (FreeSid->FreeHGlobal fix)."""
+        user, password = disposable_user
+        result = ga.exec_argv(RUNEX_PATH, [
+            user, password, "-v", "-P", "--", "whoami.exe",
+        ])
+        assert result.exitcode == 0, f"stdout={result.stdout} stderr={result.stderr}"
+        assert "AccessViolationException" not in result.stdout
+
+
 class TestTimeout:
 
     def test_timeout_expiry_still_active(self, ga, disposable_user, runex_deployed):
