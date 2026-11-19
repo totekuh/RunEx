@@ -13,7 +13,12 @@ TEST_USER  = _runex_test
 TEST_PASS  = T3stP@ss!rx
 TOOLDIR    = ~/.winbox/shared/tools
 
-.PHONY: all clean test deploy
+# Unit test config
+TEST_SOURCES = tests/unit/TestRunner.cs
+TEST_EXE     = $(OUTDIR)/RunExTests.exe
+PYTEST       = /home/witchtape/.local/share/pipx/venvs/winbox/bin/python -m pytest
+
+.PHONY: all clean test deploy unit-test e2e-test
 
 all: $(EXE) $(INVOKE)
 
@@ -45,5 +50,14 @@ test: deploy
 	echo "$$output" | grep -qi '$(TEST_USER)' \
 		&& echo "PASS: whoami returned $(TEST_USER)" \
 		|| { echo "FAIL: expected '$(TEST_USER)' in output, got: $$output"; exit 1; }
+$(TEST_EXE): $(TEST_SOURCES) $(SOURCES) | $(OUTDIR)
+	$(CSC) $(CFLAGS) -main:TestRunner -out:$(TEST_EXE) $(TEST_SOURCES) $(SOURCES)
+
+unit-test: $(TEST_EXE)
+	mono $(TEST_EXE)
+
+e2e-test: deploy
+	$(PYTEST) tests/e2e/test_runex_e2e.py -m integration -v
+
 clean:
 	rm -rf $(OUTDIR)
