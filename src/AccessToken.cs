@@ -31,31 +31,47 @@ public static class AccessToken{
 
     public static List<string[]> GetTokenPrivileges(IntPtr tHandle){
         List<string[]> privileges = new List<string[]>();
-        uint TokenInfLength=0;
-        bool Result;
-        //Get TokenInformation length in TokenInfLength
-        Result = NativeMethods.GetTokenInformation(tHandle, NativeMethods.TOKEN_INFORMATION_CLASS.TokenPrivileges, IntPtr.Zero, TokenInfLength, out TokenInfLength);
-        IntPtr TokenInformation = Marshal.AllocHGlobal((int)TokenInfLength) ;
-        Result = NativeMethods.GetTokenInformation(tHandle, NativeMethods.TOKEN_INFORMATION_CLASS.TokenPrivileges, TokenInformation, TokenInfLength, out TokenInfLength) ;
-        if (Result == false)
-            throw new RunExException("GetTokenInformation", true);
-        NativeMethods.TOKEN_PRIVILEGES TokenPrivileges = (NativeMethods.TOKEN_PRIVILEGES)Marshal.PtrToStructure( TokenInformation , typeof( NativeMethods.TOKEN_PRIVILEGES ) ) ;
-        for(int i=0;i<TokenPrivileges.PrivilegeCount;i++){
-            StringBuilder sb = new StringBuilder();
-            int luidNameLen = 0;
-            NativeMethods.LUID luid = new NativeMethods.LUID();
-            string[] privilegeStatus = new string[2];
-            luid = TokenPrivileges.Privileges[i].Luid;
-            IntPtr ptrLuid = Marshal.AllocHGlobal(Marshal.SizeOf(luid));
-            Marshal.StructureToPtr(luid, ptrLuid, true);
-            NativeMethods.LookupPrivilegeName(null, ptrLuid, null, ref luidNameLen); // call once to get the name len
-            sb.EnsureCapacity(luidNameLen + 1);
-            Result = NativeMethods.LookupPrivilegeName(null, ptrLuid, sb, ref luidNameLen);// call again to get the name
-            if (Result == false)
-                throw new RunExException("LookupPrivilegeName", true);
-            privilegeStatus[0]=sb.ToString();
-            privilegeStatus[1]=convertAttributeToString(TokenPrivileges.Privileges[i].Attributes);
-            privileges.Add(privilegeStatus);
+        IntPtr TokenInformation = IntPtr.Zero;
+        try {
+            uint TokenInfLength = 0;
+            NativeMethods.GetTokenInformation(tHandle,
+                NativeMethods.TOKEN_INFORMATION_CLASS.TokenPrivileges,
+                IntPtr.Zero, TokenInfLength, out TokenInfLength);
+            TokenInformation = Marshal.AllocHGlobal((int)TokenInfLength);
+            if (!NativeMethods.GetTokenInformation(tHandle,
+                    NativeMethods.TOKEN_INFORMATION_CLASS.TokenPrivileges,
+                    TokenInformation, TokenInfLength, out TokenInfLength))
+                throw new RunExException("GetTokenInformation", true);
+
+            int privCount = Marshal.ReadInt32(TokenInformation);
+            int structSize = Marshal.SizeOf(typeof(NativeMethods.LUID_AND_ATTRIBUTES));
+            IntPtr arrayStart = new IntPtr(TokenInformation.ToInt64() + 4);
+
+            for (int i = 0; i < privCount; i++) {
+                IntPtr entryPtr = new IntPtr(arrayStart.ToInt64() + (i * structSize));
+                NativeMethods.LUID_AND_ATTRIBUTES entry =
+                    (NativeMethods.LUID_AND_ATTRIBUTES)Marshal.PtrToStructure(
+                        entryPtr, typeof(NativeMethods.LUID_AND_ATTRIBUTES));
+
+                string[] privilegeStatus = new string[2];
+                IntPtr ptrLuid = Marshal.AllocHGlobal(Marshal.SizeOf(entry.Luid));
+                try {
+                    Marshal.StructureToPtr(entry.Luid, ptrLuid, true);
+                    int luidNameLen = 0;
+                    NativeMethods.LookupPrivilegeName(null, ptrLuid, null, ref luidNameLen);
+                    StringBuilder sb = new StringBuilder(luidNameLen + 1);
+                    if (!NativeMethods.LookupPrivilegeName(null, ptrLuid, sb, ref luidNameLen))
+                        throw new RunExException("LookupPrivilegeName", true);
+                    privilegeStatus[0] = sb.ToString();
+                } finally {
+                    Marshal.FreeHGlobal(ptrLuid);
+                }
+                privilegeStatus[1] = convertAttributeToString(entry.Attributes);
+                privileges.Add(privilegeStatus);
+            }
+        } finally {
+            if (TokenInformation != IntPtr.Zero)
+                Marshal.FreeHGlobal(TokenInformation);
         }
         return privileges;
     }
